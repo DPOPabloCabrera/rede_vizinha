@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Empreendedor - Rede Vizinha</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        },
+                        flexblue: {
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen pb-20">
+
+    <!-- Top Header Fixo do Painel -->
+    <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-flexblue-500 flex items-center justify-center text-white font-black text-xl shadow-md">
+                    RV
+                </div>
+                <div>
+                    <h1 class="font-bold text-slate-900 leading-none text-base sm:text-lg">Painel do Empreendedor</h1>
+                    <p class="text-xs text-slate-500 font-medium" id="loggedEntrepreneurName">Flex Osasco 2</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <a href="index.html" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition">
+                    Ver Catálogo Público
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteúdo Principal do Painel -->
+    <main class="max-w-4xl mx-auto px-4 pt-6 space-y-6">
+        
+        <!-- Cartão de Boas-Vindas & Status -->
+        <div class="bg-gradient-to-r from-emerald-800 to-teal-900 rounded-2xl p-5 text-white shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <span class="inline-block bg-white/20 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full mb-1 uppercase tracking-wider">Gestão Exclusiva</span>
+                <h2 class="text-xl font-bold" id="panelWelcomeTitle">Olá, Empreendedor</h2>
+                <p class="text-xs text-slate-200 mt-1">Gerencie a sua vitrine, altere status de produtos e atualize os seus dados de forma segura.</p>
+            </div>
+            <div class="bg-white/10 backdrop-blur border border-white/20 p-3 rounded-xl text-xs space-y-1">
+                <p class="font-bold text-emerald-300">✓ Escopo Seguro Ativo</p>
+                <p class="text-slate-200">Apenas você edita os seus registos.</p>
+            </div>
+        </div>
+
+        <!-- Grade de Gestão (Dashboard) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            
+            <!-- Bloco 1: Minha Vitrine -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xl">🏪</span>
+                        <span class="text-[10px] font-bold bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full">Ativo</span>
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-base">Minha Vitrine</h3>
+                    <p class="text-xs text-slate-500 mt-1">Altere a apresentação, foto de capa, descrição e o WhatsApp de atendimento.</p>
+                </div>
+                <button onclick="openEditStoreModal()" class="mt-5 w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 rounded-xl transition">
+                    Editar Apresentação
+                </button>
+            </div>
+
+            <!-- Bloco 2: Meus Produtos -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xl">🍱</span>
+                        <span id="productStatsBadge" class="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">0 itens</span>
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-base">Meus Produtos / Itens</h3>
+                    <p class="text-xs text-slate-500 mt-1">Gerencie o seu catálogo de preços, itens disponíveis ou indisponíveis para encomenda.</p>
+                </div>
+                <button onclick="openManageItemsModal()" class="mt-5 w-full bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold py-2.5 rounded-xl transition">
+                    Gerenciar / Adicionar Itens
+                </button>
+            </div>
+
+            <!-- Bloco 3: Segurança & LGPD -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xl">🔒</span>
+                        <span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">Protegido</span>
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-base">Privacidade & Regras</h3>
+                    <p class="text-xs text-slate-500 mt-1">O seu contacto telefónico está blindado por redirecionamento direto via link seguro (wa.me).</p>
+                </div>
+                <div class="mt-5 pt-3 border-t border-slate-100 text-[11px] text-slate-400 font-medium text-center">
+                    Flex Osasco 2 • Versão 2.0
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Notificação Toast -->
+    <div id="toastNotification" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl text-xs font-bold shadow-2xl transition duration-300 opacity-0 pointer-events-none">
+        <span id="toastMessage">Operação realizada!</span>
+    </div>
+
+  
+    <script>
+        // Inicialização específica do painel do empreendedor logado
+        window.addEventListener('DOMContentLoaded', () => {
+            initEntrepreneurPanel();
+        });
+    </script>
+
+    <!-- Script de Gestão do Painel -->
+    <script src="app.js"></script> 
+
+</body>
+</html>

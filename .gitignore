@@ -1,0 +1,35 @@
+# Java
+target/
+*.class
+
+# Node
+node_modules/
+dist/
+.env
+.env.local
+backend/uploads/
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Protecao de credenciais e segredos
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Arquivos locais de ambiente e configuracao sensivel
+database/.env.txt
+backend/.env
+.env
+.env.*
+!.env.example
+

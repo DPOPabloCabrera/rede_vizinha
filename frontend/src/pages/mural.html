@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8f5">
+  <meta name="description" content="Peça e compartilhe indicações de serviços com os vizinhos do Flex Osasco 2.">
+  <title>Mural de indicações — Rede Vizinha</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="config.js"></script>
+  <script defer src="mural.js"></script>
+</head>
+<body class="indication-page">
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">rv</span><span><strong>rede vizinha</strong><small>Flex Osasco 2</small></span></a>
+    <nav class="top-actions" aria-label="Navegação principal">
+      <a class="nav-link" href="index.html">Catálogo</a>
+      <a class="nav-link" href="cadastro.html?modo=login">Área do empreendedor</a>
+    </nav>
+  </header>
+
+  <main class="mural-shell">
+    <section class="mural-hero">
+      <div>
+        <span class="eyebrow">rede de vizinhos</span>
+        <h1>Alguém indica?</h1>
+        <p>Encontre recomendações da comunidade ou peça ajuda para achar um serviço de confiança.</p>
+      </div>
+      <button class="button button-light" type="button" id="openRequestButton">Pedir indicação <span aria-hidden="true">↗</span></button>
+    </section>
+
+    <section class="mural-search-panel" aria-labelledby="searchHeading">
+      <div class="mural-section-heading">
+        <div><span class="eyebrow eyebrow-dark">busca da comunidade</span><h2 id="searchHeading">Buscar indicações</h2></div>
+        <span class="result-count" id="requestCount" aria-live="polite">Carregando…</span>
+      </div>
+      <div class="mural-search-grid">
+        <label class="search-box"><span aria-hidden="true">⌕</span><input id="indicationSearch" type="search" placeholder="Palavras-chave: diarista, eletricista, bolo…" autocomplete="off"><kbd>Enter</kbd></label>
+        <label class="form-row mural-category-filter"><span>Categoria</span><select id="indicationCategory"><option value="Todas">Todas as categorias</option><option>Gastronomia</option><option>Manutenção e reformas</option><option>Beleza e bem-estar</option><option>Aulas e atividades</option><option>Pets</option><option>Moda e acessórios</option><option>Tecnologia e design</option><option>Outros serviços</option></select></label>
+      </div>
+      <p class="mural-search-hint">A busca considera o pedido, as respostas e os empreendedores mencionados.</p>
+    </section>
+
+    <p class="mural-status" id="boardStatus" role="status" aria-live="polite"></p>
+    <section class="indication-list" id="requestsList" aria-label="Pedidos e respostas da comunidade"></section>
+    <section class="empty-state mural-empty" id="emptyState" hidden><span>⌕</span><h2>Nenhuma indicação encontrada</h2><p>Tente outras palavras ou peça uma indicação para a comunidade.</p><button class="button button-dark" type="button" id="emptyRequestButton">Pedir indicação</button></section>
+  </main>
+
+  <footer class="site-footer">
+    <a class="brand brand-footer" href="index.html"><span class="brand-mark">rv</span><span><strong>rede vizinha</strong><small>Flex Osasco 2</small></span></a>
+    <span>Indicações feitas de vizinho para vizinho.</span>
+    <a href="index.html">Voltar ao catálogo ↗</a>
+  </footer>
+
+  <dialog class="listing-dialog indication-dialog" id="requestDialog" aria-labelledby="requestDialogTitle">
+    <form class="dialog-form" id="requestForm">
+      <div class="dialog-heading"><div><span class="eyebrow eyebrow-dark">mural da comunidade</span><h2 id="requestDialogTitle">Pedir uma indicação</h2><p class="image-help">Conte o que procura. Seu nome e pedido ficarão visíveis para a comunidade.</p></div><button class="icon-button" type="button" id="closeRequestButton" aria-label="Fechar">×</button></div>
+      <div class="form-row"><label for="requestAuthor">Seu nome</label><input id="requestAuthor" name="author" required minlength="2" maxlength="120" autocomplete="name" placeholder="Como os vizinhos conhecem você?"></div>
+      <div class="form-row"><label for="requestLocation">Torre/unidade <span>· opcional e pública</span></label><input id="requestLocation" name="location" maxlength="100" placeholder="Ex.: Torre 3"></div>
+      <div class="form-row"><label for="requestCategory">Categoria</label><select id="requestCategory" name="category" required><option value="">Selecione uma categoria</option><option>Gastronomia</option><option>Manutenção e reformas</option><option>Beleza e bem-estar</option><option>Aulas e atividades</option><option>Pets</option><option>Moda e acessórios</option><option>Tecnologia e design</option><option>Outros serviços</option></select></div>
+      <div class="form-row"><label for="requestTitle">O que você procura?</label><input id="requestTitle" name="title" required minlength="8" maxlength="160" placeholder="Ex.: Alguém indica eletricista para instalar um chuveiro?"></div>
+      <div class="form-row"><label for="requestDetails">Detalhes <span>· opcional</span></label><textarea id="requestDetails" name="details" rows="3" maxlength="1000" placeholder="Prazo, região ou outros detalhes que ajudem os vizinhos."></textarea></div>
+      <label class="public-post-confirm"><input id="publicPostConsent" type="checkbox" required><span>Entendo que o pedido e meu nome ficarão públicos para a comunidade.</span></label>
+      <p class="form-feedback" id="requestFeedback" role="alert" aria-live="polite"></p>
+      <div class="dialog-actions"><button class="button button-outline" type="button" id="cancelRequestButton">Cancelar</button><button class="button button-dark" id="submitRequestButton" type="submit">Publicar pedido</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

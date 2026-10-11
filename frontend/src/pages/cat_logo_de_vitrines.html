@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rede Vizinha — Flex Osasco 2 (Catálogo)</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        },
+                        flexblue: {
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Folha de Estilos Modular -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen pb-24 select-none">
+
+    <!-- CABEÇALHO FIXO -->
+    <header class="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-flexblue-500 flex items-center justify-center text-white font-black text-xl shadow-md">
+                    F2
+                </div>
+                <div>
+                    <h1 class="font-bold text-slate-900 leading-none text-base sm:text-lg">Flex Osasco 2</h1>
+                    <p class="text-xs text-slate-500 font-medium">Rede de Empreendedores & Serviços</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <a href="mural.html" class="hidden sm:inline-flex items-center space-x-1.5 text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 px-3.5 py-2 rounded-xl transition">
+                    <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
+                    <span>Mural de Pedidos</span>
+                </a>
+
+                <div class="flex items-center space-x-2">
+                    <div id="entrepreneurPanelLinkContainer"></div>
+                    <button onclick="openPublishModal()" class="inline-flex items-center space-x-1.5 bg-brand-600 hover:bg-brand-700 text-white px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition">
+                        <span>Divulgar Serviço</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <button id="headerProfileBtn" onclick="openLoginModal()" class="inline-flex items-center space-x-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                        <span id="headerProfileLabel">Entrar / Aceder Painel</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BARRA DE PESQUISA -->
+        <div class="max-w-5xl mx-auto px-4 pb-3">
+            <div class="relative">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    oninput="filterPosts()" 
+                    placeholder="O que você procura hoje no condomínio? (ex: bolo, eletricista, unha...)" 
+                    class="w-full bg-slate-100 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                >
+                <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+        </div>
+
+        <!-- CATEGORIAS -->
+        <div class="max-w-5xl mx-auto px-4 pb-2">
+            <div id="categoriesBar" class="flex space-x-2 overflow-x-auto no-scrollbar py-1 text-xs sm:text-sm"></div>
+        </div>
+
+        <!-- ABAS DE NAVEGAÇÃO -->
+        <div class="max-w-5xl mx-auto px-4 flex border-t border-slate-100 text-xs sm:text-sm font-semibold">
+            <a href="cat_logo_de_vitrines_2.html" class="flex-1 py-2.5 text-center text-brand-700 border-b-2 border-brand-600 flex items-center justify-center space-x-1.5 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <span>Buscar Indicações</span>
+            </a>
+            <a href="mural.html" class="flex-1 py-2.5 text-center text-slate-500 hover:text-slate-800 border-b-2 border-transparent flex items-center justify-center space-x-1.5 transition">
+                <span>Mural "Alguém Indica?"</span>
+            </a>
+        </div>
+    </header>
+
+    <div class="max-w-5xl mx-auto px-4 pt-3">
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs sm:text-sm">
+            <span class="text-emerald-950">Quer ver as vitrines aprovadas e preparar pedidos sem login?</span>
+            <a href="index.html" class="inline-flex items-center justify-center rounded-lg bg-emerald-700 hover:bg-emerald-800 px-3 py-2 font-semibold text-white transition">Abrir catálogo público atualizado ↗</a>
+        </div>
+    </div>
+
+    <!-- CONTEÚDO PRINCIPAL: CATÁLOGO -->
+    <main class="max-w-5xl mx-auto px-4 pt-4">
+        <div class="bg-gradient-to-r from-emerald-800 to-teal-900 rounded-2xl p-4 sm:p-6 text-white mb-6 shadow-sm">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                    <span class="inline-block bg-white/20 text-white text-[10px] sm:text-xs font-semibold px-2.5 py-0.5 rounded-full mb-1.5 uppercase tracking-wider">Comunidade Local</span>
+                    <h2 class="text-lg sm:text-xl font-bold">Apoie os vizinhos do Flex Osasco 2</h2>
+                    <p class="text-xs sm:text-sm text-slate-200 mt-1 max-w-xl">
+                        Encontre profissionais, confeiteiros e prestadores de serviços feitos pelos próprios condôminos, sem taxa e direto pelo WhatsApp.
+                    </p>
+                </div>
+                <button onclick="openLoginModal()" class="bg-white text-slate-900 hover:bg-slate-100 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold shadow transition shrink-0">
+                    Cadastrar Meu Negócio
+                </button>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-2">
+                <span class="text-xs sm:text-sm font-semibold text-slate-600" id="resultsCount">Carregando catálogo...</span>
+                <span id="activeFilterBadge" class="hidden text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-medium"></span>
+            </div>
+            <button id="clearFiltersBtn" onclick="resetCategoryFilter()" class="hidden text-xs text-brand-600 hover:underline font-medium">
+                Limpar filtros
+            </button>
+        </div>
+
+        <div id="postsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+
+        <div id="emptyState" class="hidden text-center py-16 bg-white rounded-2xl border border-dashed border-slate-200 px-4">
+            <h3 class="font-bold text-slate-800 text-base">Nenhum serviço encontrado</h3>
+            <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">Não encontramos nenhum resultado para os termos pesquisados.</p>
+            <button onclick="resetCategoryFilter()" class="bg-brand-600 text-white text-xs font-semibold px-4 py-2 rounded-xl">Ver Todos</button>
+        </div>
+    </main>
+
+    <!-- NAVEGAÇÃO MOBILE INFERIOR -->
+    <nav class="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 py-2 px-6 flex justify-around items-center shadow-lg">
+        <a href="cat_logo_de_vitrines_2.html" class="flex flex-col items-center text-xs font-bold text-brand-700">
+            <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <span>Buscar</span>
+        </a>
+        <a href="mural.html" class="flex flex-col items-center text-xs font-bold text-amber-600">
+            <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+            <span>Mural</span>
+        </a>
+        <button onclick="openLoginModal()" class="flex flex-col items-center text-xs font-bold text-slate-600">
+            <div class="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center -mt-3 shadow-md border-2 border-white">+</div>
+            <span class="mt-0.5">Vitrine</span>
+        </button>
+    </nav>
+
+    <!-- MODAL DE DETALHES -->
+    <div id="detailModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+        <div class="bg-white w-full sm:max-w-2xl rounded-t-3xl sm:rounded-3xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="sticky top-0 bg-white/90 backdrop-blur border-b border-slate-100 px-5 py-3.5 flex items-center justify-between z-10">
+                <div class="flex items-center space-x-2">
+                    <span id="modalCategoryTag" class="text-xs font-bold text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-full border border-brand-200"></span>
+                    <span class="inline-flex items-center text-[11px] font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">✓ Verificado</span>
+                </div>
+                <button onclick="closeDetailModal()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">✕</button>
+            </div>
+            <div class="overflow-y-auto px-5 py-4 space-y-5 text-slate-700">
+                <div class="relative w-full h-56 sm:h-72 rounded-2xl overflow-hidden bg-slate-100">
+                    <img id="modalCover" src="" alt="Capa" class="w-full h-full object-cover">
+                    <div class="absolute bottom-3 left-3 bg-slate-900/80 backdrop-blur text-white text-xs px-3 py-1 rounded-xl font-bold flex items-center space-x-1.5">
+                        <span class="text-amber-400">★</span>
+                        <span id="modalRatingValue">5.0</span>
+                        <span class="text-slate-300">•</span>
+                        <span id="modalIndicationsCount">12 indicações</span>
+                    </div>
+                </div>
+                <div>
+                    <h2 id="modalTitle" class="text-xl sm:text-2xl font-black text-slate-900 leading-tight"></h2>
+                    <div class="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-slate-500 mt-2">
+                        <span class="font-bold text-slate-800" id="modalAuthor"></span>
+                        <span>•</span>
+                        <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium" id="modalLocation"></span>
+                        <span id="modalPriceHighlight" class="text-brand-700 font-extrabold ml-auto text-sm sm:text-base"></span>
+                    </div>
+                </div>
+                <div class="bg-brand-50 border border-brand-200 rounded-2xl p-3.5 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold text-brand-900">Já contratou?</p>
+                        <p class="text-[11px] text-brand-700">Fortaleça a rede indicando este vizinho.</p>
+                    </div>
+                    <button onclick="handleQuickRecommend()" class="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-sm transition">👍 Indicar Também</button>
+                </div>
+                <div>
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Sobre o Serviço & História</h3>
+                    <p id="modalDescription" class="text-sm leading-relaxed text-slate-600 whitespace-pre-line"></p>
+                </div>
+                <div id="modalItemsSection" class="border-t border-slate-100 pt-4">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Tabela de Preços & Catálogo de Itens</h3>
+                    <div id="modalItemsList" class="space-y-2"></div>
+                </div>
+                <div class="border-t border-slate-100 pt-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Depoimentos (<span id="testimonialsCount">0</span>)</h3>
+                        <button onclick="toggleAddReviewForm()" class="text-xs text-brand-600 font-bold">+ Avaliar</button>
+                    </div>
+                    <div id="addReviewForm" class="hidden bg-slate-50 p-3 rounded-2xl border border-slate-200 mb-3 space-y-2">
+                        <input type="text" id="reviewAuthor" placeholder="Seu Nome e Apto" class="w-full text-xs p-2 rounded-xl border border-slate-200">
+                        <textarea id="reviewComment" rows="2" placeholder="Como foi o serviço?" class="w-full text-xs p-2 rounded-xl border border-slate-200"></textarea>
+                        <div class="flex justify-end space-x-2">
+                            <button onclick="toggleAddReviewForm()" class="text-xs text-slate-500 px-3 py-1">Cancelar</button>
+                            <button onclick="submitNewReview()" class="text-xs font-bold bg-brand-600 text-white px-3 py-1.5 rounded-xl">Enviar</button>
+                        </div>
+                    </div>
+                    <div id="modalTestimonials" class="space-y-2.5"></div>
+                </div>
+            </div>
+            <div class="border-t border-slate-100 p-4 bg-slate-50 flex items-center justify-between gap-3">
+                <div class="text-xs text-slate-500">
+                    <p class="font-medium text-slate-700">Trato Direto</p>
+                    <p>Sem taxas de intermediação</p>
+                </div>
+                <a id="modalWhatsappLink" href="#" target="_blank" class="flex-1 sm:flex-none inline-flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-md">
+                    <span>Falar no WhatsApp</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CADASTRO DE VITRINE (Caso necessário internamente) -->
+    <div id="publishModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
+        <!-- Mantido para compatibilidade com o painel se necessário -->
+    </div>
+
+    <!-- MODAL ÚNICO DE AUTENTICAÇÃO E CADASTRO COM SENHA / SOCIAL -->
+    <div id="loginModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full sm:max-w-md rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in duration-200">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                    <h3 class="font-black text-lg text-slate-900" id="authModalTitle">Acesso Restrito - Flex Osasco 2</h3>
+                    <p class="text-xs text-slate-500">Faça login ou crie sua conta com senha para gerir seu negócio</p>
+                </div>
+                <button onclick="closeLoginModal()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold">✕</button>
+            </div>
+
+            <!-- Botões de Autenticação Social -->
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="handleSocialLogin('Google')" class="flex items-center justify-center space-x-2 border border-slate-200 hover:bg-slate-50 py-2.5 rounded-xl text-xs font-bold text-slate-700 transition">
+                    <span>Google</span>
+                </button>
+                <button onclick="handleSocialLogin('Outlook')" class="flex items-center justify-center space-x-2 border border-slate-200 hover:bg-slate-50 py-2.5 rounded-xl text-xs font-bold text-slate-700 transition">
+                    <span>Outlook</span>
+                </button>
+            </div>
+
+            <div class="flex items-center my-2">
+                <div class="flex-grow border-t border-slate-200"></div>
+                <span class="px-3 text-[11px] text-slate-400 font-medium uppercase">ou com E-mail e Senha</span>
+                <div class="flex-grow border-t border-slate-200"></div>
+            </div>
+
+            <!-- Formulário de E-mail e Senha -->
+            <form id="authForm" onsubmit="handleEmailAuth(event)" class="space-y-3.5 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">E-mail do Condômino</label>
+                    <input type="email" id="authEmail" required placeholder="seu.email@exemplo.com" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Senha de Acesso</label>
+                    <input type="password" id="authPassword" required minlength="6" placeholder="Mínimo de 6 caracteres" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div id="extraRegisterFields" class="hidden space-y-3.5 pt-1">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Seu Nome</label>
+                            <input type="text" id="authName" placeholder="Ex: Carlos Silva" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5">
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Torre e Apto</label>
+                            <input type="text" id="authLocation" placeholder="Ex: Torre 1 - 42" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5">
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="authSubmitBtn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition shadow-md mt-1">
+                    Entrar na Conta
+                </button>
+            </form>
+
+            <div class="text-center pt-1 border-t border-slate-100">
+                <button type="button" onclick="toggleAuthMode()" id="authToggleText" class="text-xs text-brand-700 font-semibold hover:underline">
+                    Não tem uma conta? Crie agora com senha
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Unificado Modular -->
+    <script src="app.js"></script>
+</body>
+</html>

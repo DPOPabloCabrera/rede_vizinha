@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f7f8f5"><title>Criar conta — Rede Vizinha</title><link rel="stylesheet" href="styles.css"><script defer src="config.js"></script><script defer src="portal.js"></script></head>
+<body data-page="auth">
+  <header class="topbar"><a class="brand" href="index.html"><span class="brand-mark">rv</span><span><strong>rede vizinha</strong><small>Flex Osasco 2</small></span></a><a class="nav-link" href="index.html">← Voltar ao catálogo</a></header>
+  <main class="auth-layout"><aside class="auth-aside"><span class="eyebrow eyebrow-light">uma comunidade mais forte</span><h1>Seu talento<br>merece ser<br><em>encontrado.</em></h1><p>Crie uma vitrine, conte sua história e conecte-se com quem mora pertinho.</p><div class="auth-aside-card"><span class="auth-quote-mark">“</span><p>Quando a gente compra de quem está ao lado, todo mundo cresce junto.</p><span>Rede Vizinha · Flex Osasco 2</span></div><div class="aside-decoration" aria-hidden="true">✳</div></aside>
+    <section class="auth-main"><div class="auth-card"><div class="auth-mobile-mark">✳ Rede Vizinha</div><span class="eyebrow eyebrow-dark" id="authEyebrow">sua vitrine começa aqui</span><h2 id="authTitle">Crie sua conta</h2><p class="auth-intro" id="authDescription">Um cadastro simples para apresentar seu trabalho à comunidade.</p>
+      <div class="auth-tabs" role="tablist"><button id="registerTab" type="button" class="auth-tab is-active" role="tab" aria-selected="true">Criar conta</button><button id="loginTab" type="button" class="auth-tab" role="tab" aria-selected="false">Já tenho conta</button></div>
+      <form id="authForm" class="form-stack" novalidate>
+        <div class="form-row register-only"><label for="fullName">Como podemos te chamar?</label><input id="fullName" name="name" placeholder="Seu nome e sobrenome" autocomplete="name" maxlength="120" required></div>
+        <div class="form-row"><label for="email">E-mail</label><input id="email" name="email" type="email" placeholder="voce@email.com" autocomplete="email" maxlength="254" required></div>
+        <div class="form-row register-only"><label for="unit">Unidade / local de atendimento <span>· opcional</span></label><input id="unit" name="unit" placeholder="Ex.: Torre Ipê · ap. 74" maxlength="120" autocomplete="address-line1"></div>
+        <div class="form-row register-only"><label for="whatsapp">WhatsApp <span>· opcional</span></label><input id="whatsapp" name="whatsapp" type="tel" placeholder="(11) 99999-9999" autocomplete="tel" maxlength="20"></div>
+        <div class="form-row register-only"><label for="instagram">Instagram <span>· opcional</span></label><input id="instagram" name="instagram" placeholder="@seuperfil ou instagram.com/seuperfil" maxlength="500" autocomplete="url"></div>
+        <div class="form-row register-only"><label for="website">Site <span>· opcional</span></label><input id="website" name="website" type="text" inputmode="url" placeholder="www.seusite.com.br" maxlength="500" autocomplete="url"></div>
+        <div class="form-row register-only"><label for="linkedin">LinkedIn <span>· opcional</span></label><input id="linkedin" name="linkedin" placeholder="linkedin.com/in/seuperfil" maxlength="500" autocomplete="url"></div>
+        <div class="form-row register-only"><label for="profilePhoto">Sua foto de perfil <span>· opcional</span></label><input id="profilePhoto" type="file" accept="image/jpeg,image/png,image/webp"><small class="image-help">JPG, PNG ou WebP · até 4 MB. Ela aparecerá junto ao seu nome no catálogo.</small><img id="profilePhotoPreview" class="image-preview profile-preview" alt="Prévia da foto de perfil" hidden></div>
+        <div class="form-row"><label for="password">Senha <span id="passwordHint">· mínimo de 8 caracteres</span></label><div class="password-wrap"><input id="password" name="password" type="password" placeholder="••••••••" autocomplete="new-password" minlength="8" required><button id="togglePassword" type="button" aria-label="Mostrar senha">◉</button></div></div>
+        <button class="auth-forgot-link login-only hidden-field" id="forgotPasswordButton" type="button">Esqueci minha senha</button>
+        <label class="consent register-only"><input id="consent" type="checkbox" required><span>Concordo com o uso dos meus dados para criar minha vitrine na Rede Vizinha. Consulte nosso aviso de privacidade.</span></label>
+        <p class="form-feedback" id="formFeedback" role="alert" aria-live="polite"></p>
+        <button type="submit" class="button button-dark button-wide" id="authSubmit">Criar minha conta <span aria-hidden="true">↗</span></button>
+      </form>
+      <form id="forgotPasswordForm" class="form-stack hidden-field" novalidate>
+        <p class="auth-intro">Informe seu e-mail. Se ele estiver cadastrado, enviaremos instruções para redefinir a senha.</p>
+        <div class="form-row"><label for="recoveryEmail">E-mail da conta</label><input id="recoveryEmail" type="email" autocomplete="email" maxlength="254" required></div>
+        <p class="form-feedback" id="forgotFeedback" role="status" aria-live="polite"></p>
+        <button class="button button-dark button-wide" type="submit" id="forgotSubmit">Enviar instruções</button>
+        <button class="auth-back-link" type="button" id="forgotBack">Voltar ao login</button>
+      </form>
+      <form id="resetPasswordForm" class="form-stack hidden-field" novalidate>
+        <p class="auth-intro">Escolha uma nova senha para sua conta. O link é válido por 30 minutos e pode ser usado uma única vez.</p>
+        <div class="form-row"><label for="newPassword">Nova senha</label><input id="newPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></div>
+        <div class="form-row"><label for="confirmNewPassword">Confirme a nova senha</label><input id="confirmNewPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></div>
+        <p class="form-feedback" id="resetFeedback" role="alert" aria-live="polite"></p>
+        <button class="button button-dark button-wide" type="submit" id="resetSubmit">Salvar nova senha</button>
+        <button class="auth-back-link" type="button" id="resetBack">Voltar ao login</button>
+      </form>
+      <div class="auth-disclaimer"><span>♙</span><span>Seus dados são usados para autenticar sua conta e apresentar sua vitrine aos vizinhos.</span></div>
+      <p class="auth-switch-copy" id="authSwitchCopy">Já tem cadastro? <button type="button" id="authSwitch">Entrar na minha conta</button></p>
+    </div></section>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body></html>
