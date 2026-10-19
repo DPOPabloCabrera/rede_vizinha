@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "dev": "node --watch server.js",
-    "start": "node server.js",
+    "start": "node migrate.js && node server.js",
     "db:migrate": "node migrate.js"
   },
   "engines": {

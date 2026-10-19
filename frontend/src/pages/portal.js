@@ -55,6 +55,10 @@
       return url.toString();
     } catch (_) { return ''; }
   }
+  const PAYMENT_METHODS = ['PIX', 'DINHEIRO', 'CREDITO', 'DEBITO'];
+  const PAYMENT_LABELS = { PIX: 'Pix', DINHEIRO: 'Dinheiro', CREDITO: 'Cartão de crédito', DEBITO: 'Cartão de débito', CARTAO: 'Cartão', COMBINAR: 'Combinar diretamente' };
+  const FLEX_LABELS = { FLEX_1: 'Flex 1', FLEX_2: 'Flex 2' };
+  const MAX_PRODUCTS = 30;
   const whatsappNumber = (value) => {
     const digits = String(value || '').replace(/\D/g, '');
     return digits ? (digits.startsWith('55') ? digits : `55${digits}`) : '';
@@ -203,7 +207,7 @@
         ? '<div class="catalog-empty-note">A visualização está disponível, mas pedidos com reserva dependem do backend PostgreSQL conectado.</div>'
         : (!phone ? '<div class="catalog-empty-note">Este empreendedor ainda não cadastrou WhatsApp para receber pedidos. Use outro canal no perfil.</div>' : '');
       const cartItems = [...cart.values()];
-      const cartMarkup = cartItems.length && phone ? `<div class="cart-summary"><strong>Seu pedido</strong>${cartItems.map((item) => `<div class="cart-line"><span>${escapeHtml(item.name)}${item.optionName ? ` · ${escapeHtml(item.optionName)}` : ''} × ${item.quantity}</span><button type="button" data-remove-product="${escapeHtml(item.key)}" data-listing-id="${escapeHtml(listing.id)}" aria-label="Remover ${escapeHtml(item.name)}">Remover</button></div>`).join('')}<button type="button" class="button button-dark button-wide" data-send-cart="${escapeHtml(listing.id)}">Continuar pedido</button><small>Sem login. Ao confirmar o envio, cada opção fica reservada por 30 minutos para o empreendedor responder.</small></div>` : '';
+      const cartMarkup = cartItems.length && phone ? `<div class="cart-summary"><strong>Sua sacolinha</strong>${cartItems.map((item) => `<div class="cart-line"><span>${escapeHtml(item.name)}${item.optionName ? ` · ${escapeHtml(item.optionName)}` : ''} × ${item.quantity}</span><button type="button" data-remove-product="${escapeHtml(item.key)}" data-listing-id="${escapeHtml(listing.id)}" aria-label="Remover ${escapeHtml(item.name)}">Remover</button></div>`).join('')}<button type="button" class="button button-dark button-wide" data-send-cart="${escapeHtml(listing.id)}">Concluir pedido</button><small>Sem login. Ao confirmar o envio, cada opção fica reservada por 30 minutos para o empreendedor responder.</small></div>` : '';
       document.getElementById('catalogDialogTitle').textContent = listing.title || 'Catálogo';
       document.getElementById('catalogDialogDescription').textContent = `${listing.ownerName || ''}${listing.category ? ` · ${listing.category}` : ''}`;
       catalogContent.innerHTML = `${catalogNotice}${productMarkup}${cartMarkup}`;
@@ -247,18 +251,17 @@
         id: user.id, token: response.token, name: user.name || '', email: user.email || '',
         phone: user.phone || user.whatsapp || '', address: user.deliveryAddress || '',
         complement: user.deliveryComplement || '', neighborhood: user.deliveryNeighborhood || '',
-        city: user.deliveryCity || '', postalCode: user.deliveryPostalCode || ''
+        city: user.deliveryCity || '', postalCode: user.deliveryPostalCode || '',
+        tower: user.deliveryTower || '', apartment: user.deliveryApartment || '', flex: user.deliveryFlex || ''
       };
     }
 
     function fillCheckoutCustomer(customer) {
       document.getElementById('checkoutName').value = customer.name || '';
       document.getElementById('checkoutPhone').value = customer.phone || '';
-      document.getElementById('checkoutAddress').value = customer.address || '';
-      document.getElementById('checkoutComplement').value = customer.complement || '';
-      document.getElementById('checkoutNeighborhood').value = customer.neighborhood || '';
-      document.getElementById('checkoutCity').value = customer.city || '';
-      document.getElementById('checkoutPostalCode').value = customer.postalCode || '';
+      document.getElementById('checkoutTower').value = customer.tower || '';
+      document.getElementById('checkoutApartment').value = customer.apartment || '';
+      checkoutForm.querySelectorAll('input[name="checkoutFlex"]').forEach((input) => { input.checked = input.value === customer.flex; });
     }
 
     function openCheckout(listingId) {
@@ -270,7 +273,11 @@
       checkoutForm.reset();
       checkoutFeedback.textContent = '';
       checkoutFeedback.classList.remove('is-success');
-      document.getElementById('checkoutSummary').textContent = `${listing.title} · ${items.length} ${items.length === 1 ? 'produto' : 'produtos'} no pedido`;
+      document.getElementById('checkoutSummary').textContent = `${listing.title} · ${items.length} ${items.length === 1 ? 'produto' : 'produtos'} na sacolinha`;
+      const details = catalogCache.get(listingId) || listing;
+      const accepted = Array.isArray(details.paymentMethods) && details.paymentMethods.length ? details.paymentMethods : PAYMENT_METHODS;
+      const paymentSelect = document.getElementById('checkoutPayment');
+      paymentSelect.innerHTML = `${accepted.length > 1 ? '<option value="">Selecione</option>' : ''}${accepted.map((method) => `<option value="${escapeHtml(method)}">${escapeHtml(PAYMENT_LABELS[method] || method)}</option>`).join('')}`;
       document.getElementById('customerLoginFeedback').textContent = '';
       customerLoginDetails.open = false;
       checkoutAccountFields.hidden = true;
@@ -330,11 +337,9 @@
       const order = {
         name: document.getElementById('checkoutName').value.trim(),
         phone: document.getElementById('checkoutPhone').value.trim(),
-        address: document.getElementById('checkoutAddress').value.trim(),
-        complement: document.getElementById('checkoutComplement').value.trim(),
-        neighborhood: document.getElementById('checkoutNeighborhood').value.trim(),
-        city: document.getElementById('checkoutCity').value.trim(),
-        postalCode: document.getElementById('checkoutPostalCode').value.trim(),
+        flex: checkoutForm.querySelector('input[name="checkoutFlex"]:checked')?.value || '',
+        tower: document.getElementById('checkoutTower').value.trim(),
+        apartment: document.getElementById('checkoutApartment').value.trim(),
         paymentMethod: document.getElementById('checkoutPayment').value,
         deliveryNote: document.getElementById('checkoutDeliveryNote').value.trim()
       };
@@ -363,33 +368,34 @@
         const contact = result.contact || {};
         const confirmedOrder = contact.order || order;
         const money = (value) => `R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        const paymentLabels = { PIX: 'Pix', DINHEIRO: 'Dinheiro', CARTAO: 'Cartão (a confirmar)', COMBINAR: 'Combinar diretamente' };
         const itemLines = (contact.items || []).map((item) => {
           const unitPrice = item.price === null ? 'valor a confirmar' : money(item.price);
-          const lineTotal = item.price === null ? '' : ` · subtotal ${money(Number(item.price) * item.quantity)}`;
-          return `• ${item.name}${item.optionName ? ` (${item.optionName})` : ''} — ${item.quantity} × ${unitPrice}${lineTotal}`;
+          const lineTotal = item.price === null ? '' : ` = ${money(Number(item.price) * item.quantity)}`;
+          return `• ${item.quantity}x ${item.name}${item.optionName ? ` (${item.optionName})` : ''} — ${unitPrice}${lineTotal}`;
         });
-        const address = [confirmedOrder.address, confirmedOrder.complement, confirmedOrder.neighborhood, confirmedOrder.city, confirmedOrder.postalCode ? `CEP ${confirmedOrder.postalCode}` : ''].filter(Boolean).join(', ');
         const estimatedTotal = contact.estimatedTotal === null || contact.estimatedTotal === undefined
-          ? 'A confirmar com o empreendedor (há item sem preço publicado).'
+          ? 'a confirmar (há item sem preço publicado)'
           : money(contact.estimatedTotal);
-        const expiry = contact.expiresAt ? new Date(contact.expiresAt).toLocaleString('pt-BR') : '';
+        const expiry = contact.expiresAt ? new Date(contact.expiresAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
         const message = [
-          'Olá, te encontrei no Rede vizinha, gostaria de mais informações.',
-          '',
-          `*Pedido para ${listing.title}*`,
-          `Cliente: ${confirmedOrder.name}`,
-          `WhatsApp para retorno: ${confirmedOrder.phone}`,
-          `Endereço de entrega: ${address}`,
-          `Forma de pagamento pretendida: ${paymentLabels[confirmedOrder.paymentMethod] || confirmedOrder.paymentMethod} (a confirmar diretamente com você)`,
+          `🛍️ *Novo pedido — ${listing.title}*`,
+          '_Enviado pela Rede Vizinha_',
           '',
           '*Itens:*',
           ...itemLines,
-          `Subtotal estimado: ${estimatedTotal}`,
-          confirmedOrder.deliveryNote ? `Observação: ${confirmedOrder.deliveryNote}` : '',
-          `Código do contato: ${contact.id}`,
-          expiry ? `Reserva temporária até: ${expiry}` : ''
-        ].filter((line) => line !== '').join('\n');
+          '',
+          `*Total: ${estimatedTotal}*`,
+          `*Pagamento:* ${PAYMENT_LABELS[confirmedOrder.paymentMethod] || confirmedOrder.paymentMethod}`,
+          '',
+          '*Entrega:*',
+          `${FLEX_LABELS[confirmedOrder.flex] || confirmedOrder.flex} · Torre ${confirmedOrder.tower} · Apto ${confirmedOrder.apartment}`,
+          `Cliente: ${confirmedOrder.name}`,
+          `WhatsApp: ${confirmedOrder.phone}`,
+          confirmedOrder.deliveryNote ? `Obs.: ${confirmedOrder.deliveryNote}` : '',
+          '',
+          `Pedido nº ${String(contact.id || '').slice(0, 8).toUpperCase()}`,
+          expiry ? `Itens reservados até ${expiry}.` : ''
+        ].filter((line, index, lines) => line !== '' || (lines[index - 1] !== '' && index > 0)).join('\n').replace(/\n+$/, '');
         const phone = whatsappNumber(listing.contacts?.whatsapp || listing.whatsapp);
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
         if (popup) { popup.opener = null; popup.location.href = url; } else window.location.href = url;
@@ -434,6 +440,13 @@
         const available = Math.max(0, Number(option?.available ?? option?.stock ?? product?.available ?? product?.stock ?? 0));
         const quantityInput = addButton.closest('[data-option-card]')?.querySelector('[data-product-quantity]');
         const quantity = Number(quantityInput?.value);
+        const otherListingId = [...carts.keys()].find((id) => id !== addButton.dataset.listingId && carts.get(id)?.size);
+        if (otherListingId) {
+          const otherTitle = (catalogCache.get(otherListingId) || sourceListings.find((row) => row.id === otherListingId))?.title || 'outro empreendedor';
+          if (!window.confirm(`Sua sacolinha já tem itens de ${otherTitle}. Cada pedido é de um empreendedor só. Esvaziar a sacolinha e começar com ${listing?.title || 'este catálogo'}?`)) return;
+          carts.delete(otherListingId);
+          render();
+        }
         const cart = carts.get(addButton.dataset.listingId) || new Map();
         const key = addButton.dataset.optionKey;
         const previous = cart.get(key)?.quantity || 0;
@@ -804,7 +817,7 @@
 
     function renderContactRecords() {
       const labels = { aberto: 'Aguardando retorno', vendido: 'Venda realizada', encerrado: 'Contato encerrado', expirado: 'Reserva expirada' };
-      const paymentLabels = { PIX: 'Pix', DINHEIRO: 'Dinheiro', CARTAO: 'Cartão (a confirmar)', COMBINAR: 'Combinar diretamente' };
+      const paymentLabels = PAYMENT_LABELS;
       contactLeadsList.innerHTML = contactRecords.map((contact) => {
         const products = Array.isArray(contact.items) ? contact.items : [];
         const itemMarkup = products.length ? `<ul>${products.map((item) => `<li>${escapeHtml(item.name)}${item.optionName ? ` · ${escapeHtml(item.optionName)}` : ''} × ${item.quantity}${item.price ? ` · R$ ${escapeHtml(Number(item.price).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))}` : ' · valor a verificar'}</li>`).join('')}</ul>` : '<p class="contact-lead-service">Contato de perfil / serviço, sem itens de estoque.</p>';
@@ -1157,6 +1170,9 @@
       listingImagePreview.hidden = !imageUrl;
       if (imageUrl) listingImagePreview.src = imageUrl; else listingImagePreview.removeAttribute('src');
       renderProductEditor(item?.products || [], Boolean(API_MODE && item?.status === 'aprovada'));
+      const acceptedPayments = Array.isArray(item?.paymentMethods) && item.paymentMethods.length ? item.paymentMethods : PAYMENT_METHODS;
+      document.querySelectorAll('#listingPaymentMethods input').forEach((input) => { input.checked = acceptedPayments.includes(input.value); });
+      document.getElementById('menuImportFeedback').textContent = '';
       updateListingMode();
       dialog.showModal();
     }
@@ -1305,9 +1321,42 @@
         productRow.querySelector('.image-preview').alt = `Prévia do produto ${index + 1}`;
       });
     });
+    document.getElementById('menuImportButton').addEventListener('click', async () => {
+      const button = document.getElementById('menuImportButton');
+      const feedback = document.getElementById('menuImportFeedback');
+      const menuText = document.getElementById('menuImportText').value.trim();
+      const menuFile = document.getElementById('menuImportFile').files?.[0];
+      feedback.classList.remove('is-success');
+      if (!API_MODE) { feedback.textContent = 'A importação precisa do servidor conectado.'; return; }
+      if (!menuText && !menuFile) { feedback.textContent = 'Cole o texto ou escolha um PDF/foto do cardápio.'; return; }
+      if (menuFile && menuFile.size > 8 * 1024 * 1024) { feedback.textContent = 'O arquivo deve ter até 8 MB.'; return; }
+      button.disabled = true;
+      feedback.textContent = 'Lendo seu cardápio… pode levar até 1 minuto.';
+      try {
+        const body = new FormData();
+        if (menuText) body.append('text', menuText);
+        if (menuFile) body.append('menuFile', menuFile);
+        const result = await apiRequest('/empreendedor/importar-cardapio', { method: 'POST', body });
+        const current = productEditorList.querySelectorAll('[data-product-row]').length;
+        const room = Math.max(0, MAX_PRODUCTS - current);
+        const imported = (result.products || []).slice(0, room);
+        if (!imported.length) { feedback.textContent = `Você já tem ${MAX_PRODUCTS} produtos; remova alguns para importar mais.`; return; }
+        imported.forEach((product) => appendProductEditor({
+          name: product.name, description: product.description, price: product.price ? Number(product.price).toFixed(2).replace('.', ',') : '',
+          stock: 10, availableForSale: true,
+          options: (product.options || []).map((option) => ({ name: option.name, price: option.price ? Number(option.price).toFixed(2).replace('.', ',') : '', stock: 10 }))
+        }));
+        const skipped = (result.products || []).length - imported.length;
+        feedback.classList.add('is-success');
+        feedback.textContent = `${imported.length} produto(s) preenchido(s) com estoque 10. Revise nomes, preços e quantidades antes de salvar.${skipped > 0 ? ` ${skipped} ficaram de fora pelo limite de ${MAX_PRODUCTS}.` : ''}`;
+        productEditorList.querySelectorAll('[data-product-row]')[current]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (error) {
+        feedback.textContent = error.message || 'Não foi possível ler o cardápio.';
+      } finally { button.disabled = false; }
+    });
     document.getElementById('addProductButton').addEventListener('click', () => {
-      if (productEditorList.querySelectorAll('[data-product-row]').length >= 8) {
-        toast('Você pode incluir até 8 produtos em cada vitrine.');
+      if (productEditorList.querySelectorAll('[data-product-row]').length >= MAX_PRODUCTS) {
+        toast(`Você pode incluir até ${MAX_PRODUCTS} produtos em cada vitrine.`);
         return;
       }
       appendProductEditor();
@@ -1335,6 +1384,9 @@
         price: profileOnly ? '' : document.getElementById('listingPrice').value.trim(),
         whatsapp: '', profileOnly
       };
+      const paymentMethods = Array.from(document.querySelectorAll('#listingPaymentMethods input:checked')).map((input) => input.value);
+      if (!profileOnly && !paymentMethods.length) { feedback.textContent = 'Marque pelo menos uma forma de pagamento aceita.'; return; }
+      payload.paymentMethods = paymentMethods.length ? paymentMethods : PAYMENT_METHODS;
       const productRows = Array.from(productEditorList.querySelectorAll('[data-product-row]'));
       const products = profileOnly ? [] : productRows.map((row) => {
         const useOptions = row.querySelector('[data-product-use-options]').checked;
@@ -1362,7 +1414,7 @@
       try {
         if (API_MODE) {
           const multipart = new FormData();
-          Object.entries(payload).forEach(([key, value]) => multipart.append(key, value));
+          Object.entries(payload).forEach(([key, value]) => multipart.append(key, Array.isArray(value) ? JSON.stringify(value) : value));
           multipart.append('products', JSON.stringify(products));
           if (!profileOnly && listingImageInput.files?.[0]) multipart.append('listingImage', listingImageInput.files[0]);
           if (!profileOnly) productRows.forEach((row, index) => {

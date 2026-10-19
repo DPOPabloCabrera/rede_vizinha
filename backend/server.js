@@ -20,10 +20,11 @@ const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '8h';
 const condominiumCode = process.env.CONDOMINIO_CODIGO || 'FLEX-OSASCO-2';
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://127.0.0.1:5500,http://localhost:5500,http://127.0.0.1:8765,http://localhost:8765')
   .split(',').map((origin) => origin.trim()).filter(Boolean);
+const MAX_PRODUCTS = 30;
 const imageExtensions = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 const imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 4 * 1024 * 1024, files: 10, fields: 32, parts: 45 },
+  limits: { fileSize: 4 * 1024 * 1024, files: 32, fields: 32, parts: 70 },
   fileFilter(req, file, callback) {
     if (!imageExtensions[file.mimetype]) return callback(new HttpError(400, 'Use uma imagem JPG, PNG ou WebP.'));
     callback(null, true);
@@ -32,8 +33,19 @@ const imageUpload = multer({
 const imageUploadFields = imageUpload.fields([
   { name: 'profilePhoto', maxCount: 1 },
   { name: 'listingImage', maxCount: 1 },
-  ...Array.from({ length: 8 }, (_, index) => ({ name: `productImage_${index}`, maxCount: 1 }))
+  ...Array.from({ length: MAX_PRODUCTS }, (_, index) => ({ name: `productImage_${index}`, maxCount: 1 }))
 ]);
+const menuFileTypes = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
+const menuUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024, files: 1, fields: 4, parts: 6, fieldSize: 20000 },
+  fileFilter(req, file, callback) {
+    if (!menuFileTypes.has(file.mimetype)) return callback(new HttpError(400, 'Envie o cardápio em PDF, JPG, PNG ou WebP.'));
+    callback(null, true);
+  }
+}).single('menuFile');
+const PAYMENT_METHODS = ['PIX', 'DINHEIRO', 'CREDITO', 'DEBITO'];
+const FLEX_OPTIONS = ['FLEX_1', 'FLEX_2'];
 const categories = new Set([
   'Gastronomia', 'Beleza e bem-estar', 'Casa e manutenção', 'Aulas e atividades',
   'Pets', 'Moda e acessórios', 'Outros serviços'
@@ -192,7 +204,10 @@ function userDto(user) {
     deliveryComplement: user.complemento || '',
     deliveryNeighborhood: user.bairro || '',
     deliveryCity: user.cidade || '',
-    deliveryPostalCode: user.cep || ''
+    deliveryPostalCode: user.cep || '',
+    deliveryTower: user.torre || '',
+    deliveryApartment: user.apto || '',
+    deliveryFlex: user.flex || ''
   };
 }
 
@@ -206,6 +221,7 @@ function listingDto(row) {
     category: row.categoria,
     description: row.descricao,
     profileOnly: Boolean(row.perfil_apenas),
+    paymentMethods: Array.isArray(row.formas_pagamento) && row.formas_pagamento.length ? row.formas_pagamento : PAYMENT_METHODS,
     price: row.preco_destaque || '',
     whatsapp: row.owner_whatsapp || row.whatsapp || '',
     imageUrl: row.imagem_url || '',
@@ -246,7 +262,7 @@ function listingDto(row) {
 const listingSelect = `
   SELECT v.id, v.empreendedor_id, v.nome, v.categoria, v.descricao,
          v.preco_destaque, v.whatsapp, v.perfil_apenas, v.status, v.criado_em, v.atualizado_em,
-         v.motivo_moderacao, v.moderado_em, v.imagem_url,
+         v.motivo_moderacao, v.moderado_em, v.imagem_url, v.formas_pagamento,
          e.unidade, e.foto_url AS owner_photo_url, u.nome AS owner_name,
          e.telefone AS owner_whatsapp, e.instagram_url, e.site_url, e.linkedin_url,
 	         COALESCE((
@@ -299,7 +315,7 @@ async function authenticate(req, res, next) {
              e.id AS empreendedor_id, e.unidade, e.telefone, e.foto_url,
              e.instagram_url, e.site_url, e.linkedin_url,
              c.telefone AS cliente_telefone, c.endereco_entrega,
-             c.complemento, c.bairro, c.cidade, c.cep
+             c.complemento, c.bairro, c.cidade, c.cep, c.torre, c.apto, c.flex
         FROM usuario u
         LEFT JOIN empreendedor e ON e.usuario_id = u.id
         LEFT JOIN cliente c ON c.usuario_id = u.id
@@ -337,7 +353,7 @@ async function optionalCustomerAuthentication(req, res, next) {
     const { rows } = await pool.query(`
       SELECT u.id, u.nome, u.email, u.papel, u.condominio_id, u.ativo,
              c.telefone AS cliente_telefone, c.endereco_entrega,
-             c.complemento, c.bairro, c.cidade, c.cep
+             c.complemento, c.bairro, c.cidade, c.cep, c.torre, c.apto, c.flex
         FROM usuario u JOIN cliente c ON c.usuario_id = u.id
        WHERE u.id = $1
     `, [claims.sub]);
@@ -400,24 +416,38 @@ function validateContactProfile(body) {
   };
 }
 
-function validateDeliveryInfo(body) {
+const flexLabel = (value) => ({ FLEX_1: 'Flex 1', FLEX_2: 'Flex 2' }[value] || '');
+
+function validateDeliveryInfo(body, acceptedPayments = PAYMENT_METHODS) {
   const name = text(body?.name);
   const phone = phoneDigits(body?.phone || body?.whatsapp);
-  const address = text(body?.address);
-  const complement = text(body?.complement);
-  const neighborhood = text(body?.neighborhood);
-  const city = text(body?.city);
-  const postalCode = phoneDigits(body?.postalCode);
+  const tower = text(body?.tower);
+  const apartment = text(body?.apartment);
+  const flex = text(body?.flex).toUpperCase();
   const paymentMethod = text(body?.paymentMethod).toUpperCase();
   const deliveryNote = text(body?.deliveryNote);
   if (name.length < 2 || name.length > 120) throw new HttpError(400, 'Informe o nome do cliente (2 a 120 caracteres).');
   if (phone.length < 10 || phone.length > 13) throw new HttpError(400, 'Informe um WhatsApp válido com DDD.');
-  if (address.length < 5 || address.length > 300) throw new HttpError(400, 'Informe o endereço de entrega (5 a 300 caracteres).');
-  if (complement.length > 200 || neighborhood.length > 120 || city.length > 120) throw new HttpError(400, 'Revise os campos complementares do endereço.');
-  if (postalCode && postalCode.length !== 8) throw new HttpError(400, 'O CEP deve conter 8 dígitos.');
-  if (!['PIX', 'DINHEIRO', 'CARTAO', 'COMBINAR'].includes(paymentMethod)) throw new HttpError(400, 'Escolha uma forma de pagamento válida.');
+  if (!FLEX_OPTIONS.includes(flex)) throw new HttpError(400, 'Escolha Flex 1 ou Flex 2.');
+  if (tower.length < 1 || tower.length > 20) throw new HttpError(400, 'Informe a torre (até 20 caracteres).');
+  if (apartment.length < 1 || apartment.length > 10) throw new HttpError(400, 'Informe o apartamento (até 10 caracteres).');
+  if (!acceptedPayments.includes(paymentMethod)) throw new HttpError(400, 'Escolha uma das formas de pagamento aceitas por este empreendedor.');
   if (deliveryNote.length > 500) throw new HttpError(400, 'A observação de entrega deve ter até 500 caracteres.');
-  return { name, phone, address, complement: complement || null, neighborhood: neighborhood || null, city: city || null, postalCode: postalCode || null, paymentMethod, deliveryNote: deliveryNote || null };
+  const address = `${flexLabel(flex)} · Torre ${tower} · Apto ${apartment}`;
+  return { name, phone, tower, apartment, flex, address, complement: null, neighborhood: null, city: null, postalCode: null, paymentMethod, deliveryNote: deliveryNote || null };
+}
+
+function validatePaymentMethods(value) {
+  let input = value;
+  if (typeof input === 'string') {
+    try { input = JSON.parse(input); } catch (_) { input = input.split(','); }
+  }
+  if (input === undefined || input === null || input === '') return [...PAYMENT_METHODS];
+  if (!Array.isArray(input)) throw new HttpError(400, 'As formas de pagamento estão inválidas.');
+  const methods = [...new Set(input.map((item) => text(item).toUpperCase()).filter(Boolean))];
+  if (!methods.length) throw new HttpError(400, 'Marque pelo menos uma forma de pagamento aceita.');
+  if (methods.some((item) => !PAYMENT_METHODS.includes(item))) throw new HttpError(400, 'Uma forma de pagamento informada é inválida.');
+  return PAYMENT_METHODS.filter((item) => methods.includes(item));
 }
 
 function validateCustomerAccount(body) {
@@ -425,7 +455,7 @@ function validateCustomerAccount(body) {
   const password = typeof body?.password === 'string' ? body.password : '';
   if (!emailLooksValid(email)) throw new HttpError(400, 'Informe um e-mail válido para criar sua conta.');
   if (password.length < 8 || password.length > 128) throw new HttpError(400, 'A senha deve ter entre 8 e 128 caracteres.');
-  return { email, password, delivery: validateDeliveryInfo(body?.order) };
+  return { email, password, delivery: validateDeliveryInfo(body?.order, PAYMENT_METHODS) };
 }
 
 function validateListing(body, ownerName = '') {
@@ -440,7 +470,8 @@ function validateListing(body, ownerName = '') {
   if ((!profileOnly && description.length < 10) || description.length > 700) throw new HttpError(400, 'A descrição deve ter entre 10 e 700 caracteres.');
   if (price.length > 80) throw new HttpError(400, 'O preço ou chamada deve ter até 80 caracteres.');
   if (whatsapp && (whatsapp.length < 10 || whatsapp.length > 13)) throw new HttpError(400, 'Informe um WhatsApp válido com DDD.');
-  return { title, category, description, price: price || null, whatsapp: whatsapp || null, profileOnly };
+  const paymentMethods = validatePaymentMethods(body?.paymentMethods);
+  return { title, category, description, price: price || null, whatsapp: whatsapp || null, profileOnly, paymentMethods };
 }
 
 function validateProducts(value) {
@@ -449,7 +480,7 @@ function validateProducts(value) {
     try { input = JSON.parse(input); } catch (_) { throw new HttpError(400, 'A lista de produtos está inválida.'); }
   }
   if (input === undefined || input === null || input === '') return [];
-  if (!Array.isArray(input) || input.length > 8) throw new HttpError(400, 'Adicione no máximo 8 produtos por vitrine.');
+  if (!Array.isArray(input) || input.length > MAX_PRODUCTS) throw new HttpError(400, `Adicione no máximo ${MAX_PRODUCTS} produtos por vitrine.`);
 
   return input.map((product) => {
     const id = text(product?.id);
@@ -497,7 +528,7 @@ function validateContactItems(value) {
   if (typeof input === 'string') {
     try { input = JSON.parse(input); } catch (_) { throw new HttpError(400, 'A lista de produtos escolhidos está inválida.'); }
   }
-  if (!Array.isArray(input) || input.length > 8) throw new HttpError(400, 'Escolha no máximo 8 produtos por contato.');
+  if (!Array.isArray(input) || input.length > MAX_PRODUCTS * 2) throw new HttpError(400, 'Há itens demais na sacolinha.');
   const combined = new Map();
   for (const item of input) {
     const productId = text(item?.productId || item?.id);
@@ -705,9 +736,9 @@ app.post('/api/auth/customer/register', asyncRoute(async (req, res) => {
     const createdUser = rows[0];
     const delivery = account.delivery;
     await client.query(`
-      INSERT INTO cliente (usuario_id, telefone, endereco_entrega, complemento, bairro, cidade, cep)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, [createdUser.id, delivery.phone, delivery.address, delivery.complement, delivery.neighborhood, delivery.city, delivery.postalCode]);
+      INSERT INTO cliente (usuario_id, telefone, endereco_entrega, complemento, bairro, cidade, cep, torre, apto, flex)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `, [createdUser.id, delivery.phone, delivery.address, delivery.complement, delivery.neighborhood, delivery.city, delivery.postalCode, delivery.tower, delivery.apartment, delivery.flex]);
     const user = {
       ...createdUser,
       cliente_telefone: delivery.phone,
@@ -715,7 +746,10 @@ app.post('/api/auth/customer/register', asyncRoute(async (req, res) => {
       complemento: delivery.complement,
       bairro: delivery.neighborhood,
       cidade: delivery.city,
-      cep: delivery.postalCode
+      cep: delivery.postalCode,
+      torre: delivery.tower,
+      apto: delivery.apartment,
+      flex: delivery.flex
     };
     await client.query('COMMIT');
     res.status(201).json({ token: issueToken(user), user: userDto(user) });
@@ -736,7 +770,7 @@ app.post('/api/auth/customer/login', asyncRoute(async (req, res) => {
   const { rows } = await pool.query(`
     SELECT u.id, u.nome, u.email, u.senha_hash, u.papel, u.condominio_id, u.ativo,
            c.telefone AS cliente_telefone, c.endereco_entrega,
-           c.complemento, c.bairro, c.cidade, c.cep
+           c.complemento, c.bairro, c.cidade, c.cep, c.torre, c.apto, c.flex
       FROM usuario u JOIN cliente c ON c.usuario_id = u.id
      WHERE u.condominio_id = $1 AND LOWER(u.email) = $2 AND u.papel = 'CLIENTE'
   `, [condominiumId, email]);
@@ -853,18 +887,19 @@ app.post('/api/vitrines/:id/contatos', rateLimit({
   if (!['WHATSAPP', 'INSTAGRAM', 'SITE', 'LINKEDIN'].includes(channel)) throw new HttpError(400, 'Escolha um meio de contato válido.');
   const items = validateContactItems(req.body?.items);
   if (items.length && channel !== 'WHATSAPP') throw new HttpError(400, 'A lista de produtos pode ser enviada apenas pelo WhatsApp.');
-  const order = items.length ? validateDeliveryInfo(req.body?.order) : null;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const listing = await client.query(`
-      SELECT v.id, e.telefone
+      SELECT v.id, e.telefone, v.formas_pagamento
         FROM vitrine v JOIN empreendedor e ON e.id = v.empreendedor_id
        WHERE v.id = $1 AND v.status = 'APROVADA'
        FOR SHARE OF v
     `, [req.params.id]);
     if (!listing.rows[0]) throw new HttpError(404, 'Este perfil não está publicado.');
     if (channel === 'WHATSAPP' && !listing.rows[0].telefone) throw new HttpError(409, 'Este empreendedor ainda não cadastrou um WhatsApp.');
+    const acceptedPayments = Array.isArray(listing.rows[0].formas_pagamento) && listing.rows[0].formas_pagamento.length ? listing.rows[0].formas_pagamento : PAYMENT_METHODS;
+    const order = items.length ? validateDeliveryInfo(req.body?.order, acceptedPayments) : null;
 
     let productRows = [];
     const orderLines = [];
@@ -910,22 +945,24 @@ app.post('/api/vitrines/:id/contatos', rateLimit({
       await client.query(`
         UPDATE cliente
            SET telefone = $1, endereco_entrega = $2, complemento = $3,
-               bairro = $4, cidade = $5, cep = $6, atualizado_em = CURRENT_TIMESTAMP
-         WHERE usuario_id = $7
-      `, [order.phone, order.address, order.complement, order.neighborhood, order.city, order.postalCode, req.user.id]);
+               bairro = $4, cidade = $5, cep = $6, torre = $7, apto = $8, flex = $9,
+               atualizado_em = CURRENT_TIMESTAMP
+         WHERE usuario_id = $10
+      `, [order.phone, order.address, order.complement, order.neighborhood, order.city, order.postalCode, order.tower, order.apartment, order.flex, req.user.id]);
     }
     const contact = await client.query(`
       INSERT INTO contato_comercial (
         vitrine_id, canal, cliente_id, cliente_nome, cliente_telefone,
         endereco_entrega, complemento_entrega, bairro_entrega, cidade_entrega,
-        cep_entrega, forma_pagamento, observacao_entrega
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        cep_entrega, forma_pagamento, observacao_entrega, torre_entrega, apto_entrega, flex_entrega
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING id, expira_em
     `, [
       req.params.id, channel, order ? req.user?.id || null : null,
       order?.name || null, order?.phone || null, order?.address || null,
       order?.complement || null, order?.neighborhood || null, order?.city || null,
-      order?.postalCode || null, order?.paymentMethod || null, order?.deliveryNote || null
+      order?.postalCode || null, order?.paymentMethod || null, order?.deliveryNote || null,
+      order?.tower || null, order?.apartment || null, order?.flex || null
     ]);
     for (const { item, product, option } of orderLines) {
       await client.query(`
@@ -1197,6 +1234,7 @@ app.get('/api/empreendedor/contatos', authenticate, requireRole('EMPREENDEDOR'),
     SELECT c.id, c.canal, c.status, c.expira_em, c.criado_em, c.finalizado_em, v.nome AS vitrine_nome,
            c.cliente_nome, c.cliente_telefone, c.endereco_entrega, c.complemento_entrega,
            c.bairro_entrega, c.cidade_entrega, c.cep_entrega, c.forma_pagamento, c.observacao_entrega,
+           c.torre_entrega, c.apto_entrega, c.flex_entrega,
            COALESCE(json_agg(json_build_object(
              'productId', ci.produto_id, 'name', ci.nome_produto, 'optionName', ci.opcao_nome,
              'price', ci.preco_unitario, 'quantity', ci.quantidade
@@ -1223,6 +1261,9 @@ app.get('/api/empreendedor/contatos', authenticate, requireRole('EMPREENDEDOR'),
       neighborhood: row.bairro_entrega || '',
       city: row.cidade_entrega || '',
       postalCode: row.cep_entrega || '',
+      tower: row.torre_entrega || '',
+      apartment: row.apto_entrega || '',
+      flex: row.flex_entrega || '',
       paymentMethod: row.forma_pagamento || '',
       deliveryNote: row.observacao_entrega || ''
     } : null
@@ -1304,9 +1345,9 @@ app.post('/api/empreendedor/vitrines', authenticate, requireRole('EMPREENDEDOR')
     await client.query('BEGIN');
     const imageUrl = await storeImage(req.files?.listingImage?.[0], 'listings', savedPaths);
     const { rows } = await client.query(`
-      INSERT INTO vitrine (empreendedor_id, nome, categoria, descricao, preco_destaque, whatsapp, imagem_url, perfil_apenas)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
-    `, [req.user.empreendedor_id, item.title, item.category, item.description, item.price, item.whatsapp, imageUrl, item.profileOnly]);
+      INSERT INTO vitrine (empreendedor_id, nome, categoria, descricao, preco_destaque, whatsapp, imagem_url, perfil_apenas, formas_pagamento)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id
+    `, [req.user.empreendedor_id, item.title, item.category, item.description, item.price, item.whatsapp, imageUrl, item.profileOnly, item.paymentMethods]);
     listingId = rows[0].id;
     await saveProducts(client, listingId, products, req.files, savedPaths);
     await client.query('COMMIT');
@@ -1341,11 +1382,11 @@ app.put('/api/empreendedor/vitrines/:id', authenticate, requireRole('EMPREENDEDO
     await client.query(`
       UPDATE vitrine
          SET nome = $1, categoria = $2, descricao = $3, preco_destaque = $4, whatsapp = $5,
-             imagem_url = $6, perfil_apenas = $9, status = 'PENDENTE', moderado_por = NULL, moderado_em = NULL,
+             imagem_url = $6, perfil_apenas = $9, formas_pagamento = $10, status = 'PENDENTE', moderado_por = NULL, moderado_em = NULL,
              motivo_moderacao = NULL, atualizado_em = CURRENT_TIMESTAMP
        WHERE id = $7 AND empreendedor_id = $8
     `, [item.title, item.category, item.description, item.price, item.whatsapp,
-      uploadedCoverUrl || oldCoverUrl, req.params.id, req.user.empreendedor_id, item.profileOnly]);
+      uploadedCoverUrl || oldCoverUrl, req.params.id, req.user.empreendedor_id, item.profileOnly, item.paymentMethods]);
     await saveProducts(client, req.params.id, products, req.files, savedPaths, obsoleteImageUrls);
     await client.query('COMMIT');
   } catch (error) {
@@ -1359,6 +1400,129 @@ app.put('/api/empreendedor/vitrines/:id', authenticate, requireRole('EMPREENDEDO
   await removeStoredImageUrls(obsoleteImageUrls);
   const updated = await readListing(req.params.id, req.user.condominio_id);
   res.json({ listing: listingDto(updated) });
+}));
+
+// ---------- Importação de cardápio (texto, PDF ou foto) ----------
+function parseBrazilianPrice(value) {
+  const raw = text(String(value ?? '')).replace(/r\$\s*/i, '').replace(/\s/g, '');
+  if (!raw) return '';
+  const normalized = raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw;
+  const amount = Number(normalized);
+  return Number.isFinite(amount) && amount >= 0 && amount < 1e9 ? amount.toFixed(2) : '';
+}
+
+function sanitizeImportedProducts(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, MAX_PRODUCTS).map((product) => {
+    const options = (Array.isArray(product?.options) ? product.options : [])
+      .map((option) => ({ name: text(option?.name).slice(0, 80), price: parseBrazilianPrice(option?.price) }))
+      .filter((option) => option.name)
+      .slice(0, 2);
+    const uniqueOptions = options.filter((option, index) => options.findIndex((other) => other.name.toLowerCase() === option.name.toLowerCase()) === index);
+    return {
+      name: text(product?.name).slice(0, 140),
+      description: text(product?.description).slice(0, 700),
+      price: uniqueOptions.length ? '' : parseBrazilianPrice(product?.price),
+      options: uniqueOptions.length >= 2 ? uniqueOptions : []
+    };
+  }).filter((product) => product.name.length >= 2);
+}
+
+// Leitura simples sem IA: uma linha por produto, com preço no fim (ex.: "Coxinha ....... R$ 6,50").
+function parseMenuTextLocally(content) {
+  const products = [];
+  let current = null;
+  for (const rawLine of String(content || '').split(/\r?\n/)) {
+    const line = rawLine.replace(/[*_~•▪●◦·]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!line) continue;
+    const match = /^(.*?)[\s.:\-–—=]*(?:r\$)?\s*(\d{1,6}(?:[.,]\d{1,2})?)\s*(?:reais)?$/i.exec(line);
+    if (match && match[1].replace(/[^a-zà-ú]/gi, '').length >= 2 && /r\$|[.,]\d{2}$/i.test(line)) {
+      current = { name: match[1].replace(/[\s.:\-–—=]+$/, '').trim(), description: '', price: match[2], options: [] };
+      products.push(current);
+    } else if (current && line.length <= 300 && !/^(card[aá]pio|menu|pedidos?|whats|pix|entrega)/i.test(line)) {
+      current.description = current.description ? `${current.description} ${line}` : line;
+    }
+  }
+  return sanitizeImportedProducts(products);
+}
+
+async function readMenuWithGemini({ menuText, file }) {
+  const apiKey = text(process.env.GEMINI_API_KEY);
+  const model = text(process.env.GEMINI_MODEL) || 'gemini-3.5-flash-lite';
+  const instructions = [
+    'Você recebe o cardápio ou catálogo de um pequeno empreendedor brasileiro (texto, PDF ou foto).',
+    `Extraia até ${MAX_PRODUCTS} produtos à venda. Para cada um: name (nome curto), description (detalhes, ingredientes ou tamanho; vazio se não houver),`,
+    'price (somente número com ponto decimal, ex.: "12.50"; vazio se não houver preço) e options.',
+    'Use options apenas quando o mesmo produto tiver 2 tamanhos/versões com preços diferentes (ex.: P e G); nesse caso deixe price vazio.',
+    'Não invente produtos nem preços. Ignore telefones, endereços, horários, formas de pagamento e taxas de entrega.'
+  ].join(' ');
+  const parts = [{ text: instructions }];
+  if (menuText) parts.push({ text: `Cardápio:\n${menuText}` });
+  if (file) parts.push({ inline_data: { mime_type: file.mimetype, data: file.buffer.toString('base64') } });
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    signal: AbortSignal.timeout(60000),
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'OBJECT',
+          properties: {
+            products: {
+              type: 'ARRAY',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  name: { type: 'STRING' },
+                  description: { type: 'STRING' },
+                  price: { type: 'STRING' },
+                  options: { type: 'ARRAY', items: { type: 'OBJECT', properties: { name: { type: 'STRING' }, price: { type: 'STRING' } }, required: ['name'] } }
+                },
+                required: ['name']
+              }
+            }
+          },
+          required: ['products']
+        }
+      }
+    })
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    console.error(`Gemini respondeu ${response.status}: ${detail.slice(0, 300)}`);
+    throw new HttpError(502, response.status === 429
+      ? 'O leitor de cardápio está ocupado agora. Tente novamente em 1 minuto.'
+      : 'Não foi possível ler o cardápio agora. Tente novamente ou cole o texto.');
+  }
+  const data = await response.json();
+  const output = data?.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '';
+  try { return sanitizeImportedProducts(JSON.parse(output).products); }
+  catch (_) { throw new HttpError(502, 'A leitura do cardápio veio em formato inesperado. Tente novamente.'); }
+}
+
+app.post('/api/empreendedor/importar-cardapio', rateLimit({
+  windowMs: 60 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false
+}), authenticate, requireRole('EMPREENDEDOR'), menuUpload, asyncRoute(async (req, res) => {
+  const menuText = text(req.body?.text).slice(0, 15000);
+  const file = req.file || null;
+  if (!menuText && !file) throw new HttpError(400, 'Cole o texto do cardápio ou envie um PDF/foto.');
+  if (file && file.mimetype !== 'application/pdf' && !isImageBufferValid(file)) throw new HttpError(400, 'A imagem enviada está inválida.');
+  if (file && file.mimetype === 'application/pdf' && file.buffer.toString('ascii', 0, 5) !== '%PDF-') throw new HttpError(400, 'O PDF enviado está inválido.');
+  let products;
+  let method = 'ia';
+  if (text(process.env.GEMINI_API_KEY)) {
+    products = await readMenuWithGemini({ menuText, file });
+  } else if (!file) {
+    products = parseMenuTextLocally(menuText);
+    method = 'texto';
+  } else {
+    throw new HttpError(503, 'A leitura de PDF e fotos ainda não foi ativada no servidor. Por enquanto, cole o texto do cardápio.');
+  }
+  if (!products.length) throw new HttpError(422, 'Não encontrei produtos com nome e preço. Confira o cardápio ou cadastre manualmente.');
+  res.json({ products, method, limit: MAX_PRODUCTS });
 }));
 
 app.patch('/api/empreendedor/produtos/:id/disponibilidade', authenticate, requireRole('EMPREENDEDOR'), asyncRoute(async (req, res) => {
@@ -1547,9 +1711,9 @@ app.use((error, req, res, next) => {
   const status = Number.isInteger(error.status) ? error.status : (uploadError || error.type === 'entity.parse.failed' ? 400 : 500);
   if (status >= 500) console.error('Erro na API:', error.message);
   const message = uploadError
-    ? (error.code === 'LIMIT_FILE_SIZE' ? 'Cada imagem deve ter até 4 MB.' : 'Os arquivos enviados excedem os limites permitidos.')
+    ? (error.code === 'LIMIT_FILE_SIZE' ? (error.field === 'menuFile' ? 'O cardápio deve ter até 8 MB.' : 'Cada imagem deve ter até 4 MB.') : 'Os arquivos enviados excedem os limites permitidos.')
     : error.message;
-  res.status(status).json({ error: status >= 500 ? 'Erro interno do servidor.' : message });
+  res.status(status).json({ error: status >= 500 && !(error instanceof HttpError) ? 'Erro interno do servidor.' : message });
 });
 
 async function expireReservations() {
